@@ -18,11 +18,18 @@ import numpy as np
 # COLOR_BGR2HSV - MOG2 2nd channel
 
 
-def hand_histogram(frame):
-    pass
+def hand_histogram(frame, track_window):
+    r, h, c, w = track_window
+    # set up the ROI for tracking
+    roi = frame[r:r+h, c:c+w]
+    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)), np.array((180., 255., 255.)))
+    roi_hist = cv2.calcHist([hsv_roi], [0], mask, [180], [0, 180])
+    cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
+    return roi_hist
 
 
-def subsstact_background(frame):
+def substact_background(frame):
     pass
 
 
@@ -40,36 +47,32 @@ def main():
     bgsubs = cv2.createBackgroundSubtractorMOG2(varThreshold=100, detectShadows=False)
     library_name = 'libhandy v0.1'
 
-
     # setup initial location of window
     r, h, c, w = 80, 80, 80, 80
     track_window = (c, r, w, h)
-    # set up the ROI for tracking
-    roi = frame[r:r+h, c:c+w]
-    hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)), np.array((180., 255., 255.)))
-    roi_hist = cv2.calcHist([hsv_roi], [0], mask, [180], [0, 180])
-    cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
     # Setup the termination criteria,
     # either 20 iteration or move by atleast 5 pt
     term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 5)
-
+    roi_hist = np.zeros((2, 2))
     while True:
         # Capture frame-by-frame
         ret, frame = camera_feed.read()
         # flip the image so the screen acts like a mirror
         cv2.flip(frame, 1, frame)
-        # frame = cv2.cvtColor(frame, COLORSPACE)
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)
-        # apply camshift to get the new location
-        ret, track_window = cv2.CamShift(dst, track_window, term_crit)
-        # Draw it on image
-        cv2.rectangle(frame, (r, c), (r+h, c+w), (20, 20, 55), 5)
-        pts = cv2.boxPoints(ret)
-        pts = np.int0(pts)
-        img2 = cv2.polylines(frame, [pts], True, 255, 2)
 
+        if roi_hist.any():
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)
+            # apply camshift to get the new location
+            ret, track_window = cv2.CamShift(dst, track_window, term_crit)
+            # Draw it on image
+            pts = cv2.boxPoints(ret)
+            pts = np.int0(pts)
+            img2 = cv2.polylines(frame, [pts], True, 255, 2)
+        else:
+            img2 = frame
+
+        cv2.rectangle(frame, (r, c), (r+h, c+w), (20, 20, 55), 5)
         # background = bgsubs.apply(frame[:, :, 2], learningRate=0.01)
         # result_frame = np.zeros_like(frame)
         # result_frame = cv2.bitwise_and(frame, frame, result_frame, background)
@@ -86,8 +89,7 @@ def main():
         elif pressed_key_code == ord('b'):
             pass
         elif pressed_key_code == ord('c'):
-            pass
-            # hand_hist = capture_hand_hist(frame)
+            roi_hist = hand_histogram(frame, track_window)
 
     # When everything done, release the capture
     camera_feed.release()
