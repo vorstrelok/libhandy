@@ -29,22 +29,19 @@ def hand_histogram(frame, track_window):
     return roi_hist
 
 
-def substact_background(frame):
+def subtact_background(frame):
     pass
 
 
 def main():
     camera_feed = cv2.VideoCapture(0)
     # set camera resolution
-    # camera_feed.set(3, 1280)
-    camera_feed.set(3, 640)
-    # camera_feed.set(4, 720)
-    camera_feed.set(4, 480)
+    camera_feed.set(3, 1280)
+    # camera_feed.set(3, 640)
+    camera_feed.set(4, 720)
+    # camera_feed.set(4, 480)
 
-    ret, frame = camera_feed.read()
-    COLORSPACE = cv2.COLOR_BGR2HSV
-
-    bgsubs = cv2.createBackgroundSubtractorMOG2(varThreshold=100, detectShadows=False)
+    bg_substractor = cv2.createBackgroundSubtractorMOG2()
     library_name = 'libhandy v0.1'
 
     # setup initial location of window
@@ -54,11 +51,16 @@ def main():
     # either 20 iteration or move by atleast 5 pt
     term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 5)
     roi_hist = np.zeros((2, 2))
+    fg_mask = np.zeros((2, 2))
     while True:
         # Capture frame-by-frame
         ret, frame = camera_feed.read()
         # flip the image so the screen acts like a mirror
         cv2.flip(frame, 1, frame)
+
+        if fg_mask.any():
+            fg_mask = bg_substractor.apply(frame)
+            frame = cv2.bitwise_and(frame, frame, mask=fg_mask)
 
         if roi_hist.any():
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -73,9 +75,6 @@ def main():
             img2 = frame
 
         cv2.rectangle(frame, (r, c), (r+h, c+w), (20, 20, 55), 5)
-        # background = bgsubs.apply(frame[:, :, 2], learningRate=0.01)
-        # result_frame = np.zeros_like(frame)
-        # result_frame = cv2.bitwise_and(frame, frame, result_frame, background)
 
         cv2.putText(img2, 'Hand postiond is {0},{1}'.format(frame.shape[1], frame.shape[0]), (int(0.08*frame.shape[1]), int(0.97*frame.shape[0])), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 255))
 
@@ -87,7 +86,7 @@ def main():
         if pressed_key_code == ord('q'):
             break
         elif pressed_key_code == ord('b'):
-            pass
+            fg_mask = bg_substractor.apply(frame)
         elif pressed_key_code == ord('c'):
             roi_hist = hand_histogram(frame, track_window)
 
