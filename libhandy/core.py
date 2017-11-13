@@ -1,17 +1,22 @@
 import cv2
 import numpy as np
-# controls - draw a rectangle and save hand hist
-# substract background by averaging
+# deal with the "shadow" - hand becoming background if standig still
+
+# оформить в решение:
+# нарисовать квадратик и сохранить гистограмму руки
+# фотографировать бекграунд по кнопке, сравнивать текущий кадр и бекграунд, если разница менее то 10% то это бекграунд
+
+# сделать:
+# выровнять освещенность и уменьшить разнообразие (одинаковые цвета?)
+# сделать сетку из кружочков или квадратиков и сравнивать с информацией о руке. какой ближе всего там и рука.
+# можно использовать информацию из предыдущего кадра и начинать искать там, где была рука.
+# HOG пирамида для изменения дистанции до руки?
 
 # future:
 # capture hand via fullscreen
-# find face and delete it as a background
 # convexhull?
 # HOG?
-
-# deal with the "shadow" - hand becoming background if standig still
-# detect hand, then find its countour
-# and do not count it as a background
+# find face and delete it as a background
 
 # useful bg subs
 # COLOR_BGR2HLS - MOG2 1st channel
@@ -36,12 +41,11 @@ def subtact_background(frame):
 def main():
     camera_feed = cv2.VideoCapture(0)
     # set camera resolution
-    camera_feed.set(3, 1280)
-    # camera_feed.set(3, 640)
-    camera_feed.set(4, 720)
-    # camera_feed.set(4, 480)
+    # camera_feed.set(3, 1280)
+    # camera_feed.set(4, 720)
+    camera_feed.set(3, 640)
+    camera_feed.set(4, 480)
 
-    bg_substractor = cv2.createBackgroundSubtractorMOG2()
     library_name = 'libhandy v0.1'
 
     # setup initial location of window
@@ -56,11 +60,24 @@ def main():
         # Capture frame-by-frame
         ret, frame = camera_feed.read()
         # flip the image so the screen acts like a mirror
-        cv2.flip(frame, 1, frame)
+        frame = cv2.flip(frame, 1)
 
         if fg_mask.any():
-            fg_mask = bg_substractor.apply(frame)
-            frame = cv2.bitwise_and(frame, frame, mask=fg_mask)
+            hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HLS)
+            hsv_bg = cv2.cvtColor(fg_mask, cv2.COLOR_BGR2HLS)
+            # subs = cv2.absdiff(frame, fg_mask)
+
+            subs = cv2.absdiff(hsv_frame[:, :, :2], hsv_bg[:, :, :2])
+            ret, mask = cv2.threshold(subs, 30, 255, cv2.THRESH_TOZERO)
+            mask = cv2.add(mask[:, :, 0], mask[:, :, 1])
+            # mask = cv2.bitwise_not(mask)
+            # mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+            # ret, mask = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY)
+
+            frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+            # frame = cv2.GaussianBlur(mask, (5, 5), 0)
+            # frame = cv2.medianBlur(frame, 5)
 
         if roi_hist.any():
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -80,13 +97,13 @@ def main():
 
         # Display the resulting frame
         cv2.namedWindow(library_name, cv2.WINDOW_NORMAL)
-        # cv2.imshow(library_name, gray)
         cv2.imshow(library_name, img2)
         pressed_key_code = cv2.waitKey(10) & 0xFF
         if pressed_key_code == ord('q'):
             break
         elif pressed_key_code == ord('b'):
-            fg_mask = bg_substractor.apply(frame)
+            fg_mask = cv2.GaussianBlur(cv2.medianBlur(frame, 5), (5, 5), 0)
+            # fg_mask = frame
         elif pressed_key_code == ord('c'):
             roi_hist = hand_histogram(frame, track_window)
 
