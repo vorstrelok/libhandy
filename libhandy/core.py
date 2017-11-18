@@ -2,10 +2,7 @@ import cv2
 import numpy as np
 
 
-def hand_histogram(frame, track_window):
-    r, h, c, w = track_window
-    # set up the ROI for tracking
-    roi = frame[r:r+h, c:c+w]
+def hand_histogram(roi):
     hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
     # mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)), np.array((180., 255., 255.)))
     roi_hist = cv2.calcHist([hsv_roi], [0], None, [180], [0, 180])
@@ -82,10 +79,18 @@ def main():
     library_name = 'libhandy v0.1'
 
     background = np.zeros([])
-    roi_hist = np.zeros([])
     # initial location of tracking window
     track_window = (80, 80, 80, 80)
-    # track_window = (c, r, w, h)
+    # if the return value from imread is not None,
+    # it means that the read was sucesseful
+    # its done this way because imread function does not raise
+    # FileNotFoundError if the file does not exist
+    hand_image = cv2.imread('hand_img.png')
+    if hand_image is not None:
+        roi_hist = hand_histogram(hand_image)
+    else:
+        roi_hist = np.zeros([])
+
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
@@ -104,7 +109,12 @@ def main():
         if pressed_key_code == ord('q'):
             break
         elif pressed_key_code == ord('c'):
-            roi_hist = hand_histogram(processed_image, track_window)
+            # set up the ROI for tracking
+            r, h, c, w = track_window
+            roi = processed_image[r:r+h, c:c+w]
+            roi_hist = hand_histogram(roi)
+            # save hand picture for later use
+            cv2.imwrite('hand_img.png', roi)
 
         if roi_hist.any():
             track_window, tracked_image = camshift_tacking(
