@@ -1,40 +1,7 @@
 import cv2
 import numpy as np
-# global variables
-background = np.zeros([])
-# 1 - выровнять освещенность и уменьшить разнообразие (одинаковые цвета?)
-# HLS is not stable to shadows sadly
-# HLS - move all colors to say 5 - 15 bins
-# бекграунд - hls 2 канала + вычет (или взять среднее?) \\ mog2 + median и на этом успокоиться
-# сравнивать текущий кадр и бекграунд, если разница менее то 10% (!!!) то это бекграунд
-# написать в дипломе, что задача вычитания бекграунда неотделима от задачи детекции
-# написать, что путаем руку и лицо, если рука закрывает лицо
-# анекдот - применять распознавание руки для борьбы с коррупцией
-# написать про важность юнит-тестирования, так как при сохранении гистограммы руки возможно ошибиться в квадритике или
-# в том, что он смешивается с изображением и ничего не работает
-# вроде сделали
-# 2 - заставить работать с этим camshift
-# нарисовать квадратик и сохранить гистограмму руки
-# 3 - управление сделать слева и справа экрана две области пересечения
-# 4 - протестировать дома презентацию и изменение dpi через переходник
-# 5 - сделать HOG
 
-# HOG:
-# сделать сетку из кружочков или квадратиков и сравнивать с информацией о руке. какой ближе всего там и рука.
-# можно использовать информацию из предыдущего кадра и начинать искать там, где была рука.
-# HOG пирамида для изменения дистанции до руки?
 
-# future:
-# Feature Matching + Homography to find Objects
-# capture hand via fullscreen
-# convexhull?
-# find face and delete it as a background
-# deal with the "shadow" - hand becoming background if standig still
-# even lighting conditions - HLS + CLAHE - sorta not working
-
-# useful bg subs
-# COLOR_BGR2HLS - MOG2 1st channel
-# COLOR_BGR2HSV - MOG2 2nd channel
 def hand_histogram(frame, track_window):
     r, h, c, w = track_window
     # set up the ROI for tracking
@@ -48,7 +15,7 @@ def hand_histogram(frame, track_window):
 
 def camshift_tacking(image, roi_hist, track_window):
     # Setup the termination criteria,
-    # either 20 iteration or move by atleast 5 pt
+    # either 10 iteration or move by atleast 1 pt
     term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -114,6 +81,7 @@ def main():
     camera_feed.set(4, 480)
     library_name = 'libhandy v0.1'
 
+    background = np.zeros([])
     roi_hist = np.zeros([])
     # initial location of tracking window
     track_window = (80, 80, 80, 80)
@@ -121,8 +89,6 @@ def main():
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
-
-        global background
 
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
@@ -133,6 +99,13 @@ def main():
             background = preprocess_image(image)
             processed_image = image
 
+        # rudimentary user interface
+        pressed_key_code = cv2.waitKey(10) & 0xFF
+        if pressed_key_code == ord('q'):
+            break
+        elif pressed_key_code == ord('c'):
+            roi_hist = hand_histogram(processed_image, track_window)
+
         if roi_hist.any():
             track_window, tracked_image = camshift_tacking(
                 processed_image, roi_hist, track_window
@@ -140,8 +113,7 @@ def main():
         else:
             r, h, c, w = track_window
             # draw target rectangle
-            # cv2.rectangle(processed_image, (r, c), (r+h, c+w), (20, 20, 55), 2)
-            tracked_image = processed_image
+            cv2.rectangle(processed_image, (r, c), (r+h, c+w), (20, 20, 55), 2)
 
         # put some text on the screen
         # cv2.putText(
@@ -153,13 +125,7 @@ def main():
 
         # Display the resulting frame
         cv2.namedWindow(library_name, cv2.WINDOW_NORMAL)
-        cv2.imshow(library_name, tracked_image)
-
-        pressed_key_code = cv2.waitKey(10) & 0xFF
-        if pressed_key_code == ord('q'):
-            break
-        elif pressed_key_code == ord('c'):
-            roi_hist = hand_histogram(processed_image, track_window)
+        cv2.imshow(library_name, processed_image)
 
     # When everything done, release the capture
     camera_feed.release()
