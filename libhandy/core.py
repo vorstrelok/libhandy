@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 
 
 def hand_histogram(roi):
@@ -109,12 +110,19 @@ def main():
         if pressed_key_code == ord('q'):
             break
         elif pressed_key_code == ord('c'):
-            # set up the ROI for tracking
-            r, h, c, w = track_window
-            roi = processed_image[r:r+h, c:c+w]
-            roi_hist = hand_histogram(roi)
-            # save hand picture for later use
-            cv2.imwrite('hand_img.png', roi)
+            if roi_hist.any():
+                # if we already have a hand image and we press C again,
+                # threat it as resetting
+                roi_hist = np.zeros([])
+                track_window = (80, 80, 80, 80)
+                os.remove('hand_img.png')
+            else:
+                # set up the ROI for tracking
+                r, h, c, w = track_window
+                roi = processed_image[r:r+h, c:c+w]
+                roi_hist = hand_histogram(roi)
+                # save hand picture for later use
+                cv2.imwrite('hand_img.png', roi)
 
         if roi_hist.any():
             track_window, tracked_image = camshift_tacking(
