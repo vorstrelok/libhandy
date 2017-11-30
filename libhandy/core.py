@@ -92,6 +92,8 @@ def main():
     else:
         roi_hist = np.zeros([])
 
+    bg_sub = cv2.createBackgroundSubtractorMOG2(history=60, detectShadows=False)
+    bg_count = 60
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
@@ -99,11 +101,18 @@ def main():
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
 
-        if background.any():
-            processed_image = subtract_background(image, background)
+        # if background.any():
+        #     processed_image = subtract_background(image, background)
+        # else:
+        #     background = preprocess_image(image)
+        if bg_count:
+            bg_count -= 1
+            processed_image = bg_sub.apply(image)
         else:
-            background = preprocess_image(image)
-            processed_image = image
+            processed_image = bg_sub.apply(image, learningRate=0.0)
+        processed_image = cv2.medianBlur(processed_image, 3)
+        kernel = np.ones((7, 7), np.uint8)
+        processed_image = cv2.morphologyEx(processed_image, cv2.MORPH_CLOSE, kernel)
 
         # rudimentary user interface
         pressed_key_code = cv2.waitKey(10) & 0xFF
