@@ -29,20 +29,11 @@ def camshift_tacking(image, roi_hist, track_window):
 
 
 def preprocess_image(image):
-    # gaussian_image = cv2.GaussianBlur(image, (5, 5), 0)
     bilaterial_image = cv2.bilateralFilter(image, 7, 75, 75)
-    # hls_image = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
-    # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    # clahed_lighting = clahe.apply(hls_image[:, :, 1])
-    # hls_image[:, :, 1] = clahed_lighting
-    # hls_image[:, :, 0] = cv2.bilateralFilter(hls_image[:, :, 0], 7, 75, 75)
-    # hls_image[:, :, 2] = cv2.bilateralFilter(hls_image[:, :, 2], 7, 75, 75)
-    # bgr_image = cv2.cvtColor(hls_image, cv2.COLOR_HLS2BGR)
-    # gray_image = cv2.cvtColor(bilateral_filtered_image, cv2.COLOR_BGR2GRAY)
     return bilaterial_image
 
 
-def mog2_subtractor():
+def mog2_bg_subtractor():
     bg_sub = cv2.createBackgroundSubtractorMOG2(
         history=60, detectShadows=False
     )
@@ -63,32 +54,37 @@ def mog2_subtractor():
         yield no_bg_image
 
 
-def subtract_background(image, background):
+def custom_bg_subtractor():
     '''
     Given tagret image and background tries to
     subtract background from image
     '''
-    # apply preprocessing
-    prepro_image = preprocess_image(image)
-    # lets move image and background to hls colorspace
-    # and calculate % difference in H and S channels
-    prepro_hls = cv2.cvtColor(prepro_image, cv2.COLOR_BGR2HLS)
-    background_hls = cv2.cvtColor(background, cv2.COLOR_BGR2HLS)
-    subs_h = cv2.absdiff(prepro_hls[:, :, 0], background_hls[:, :, 0])
-    subs_s = cv2.absdiff(prepro_hls[:, :, 2], background_hls[:, :, 2])
-    diff_h = cv2.divide(subs_h, background_hls[:, :, 0] + 1)
-    diff_s = cv2.divide(subs_s, background_hls[:, :, 2] + 1)
-    diff = cv2.add(diff_h, diff_s)
-    # if the % difference is big enough it is a background
-    _, thresholded = cv2.threshold(diff, 0.55, 255, cv2.THRESH_BINARY)
-    # aplly median filter and opening morphology
-    # to lower noise and obtain a background mask
-    median = cv2.medianBlur(thresholded, 7)
-    kernel = np.ones((9, 9), np.uint8)
-    morphed = cv2.morphologyEx(median, cv2.MORPH_OPEN, kernel)
-    # finally, apply mask to image
-    no_bg_image = cv2.bitwise_and(image, image, mask=morphed)
-    return no_bg_image
+    background = np.zeros([])
+    while True:
+        image = yield
+        if not background.any():
+            background = image
+        # apply preprocessing
+        prepro_image = preprocess_image(image)
+        # lets move image and background to hls colorspace
+        # and calculate % difference in H and S channels
+        prepro_hls = cv2.cvtColor(prepro_image, cv2.COLOR_BGR2HLS)
+        background_hls = cv2.cvtColor(background, cv2.COLOR_BGR2HLS)
+        subs_h = cv2.absdiff(prepro_hls[:, :, 0], background_hls[:, :, 0])
+        subs_s = cv2.absdiff(prepro_hls[:, :, 2], background_hls[:, :, 2])
+        diff_h = cv2.divide(subs_h, background_hls[:, :, 0] + 1)
+        diff_s = cv2.divide(subs_s, background_hls[:, :, 2] + 1)
+        diff = cv2.add(diff_h, diff_s)
+        # if the % difference is big enough it is a background
+        _, thresholded = cv2.threshold(diff, 0.55, 255, cv2.THRESH_BINARY)
+        # aplly median filter and opening morphology
+        # to lower noise and obtain a background mask
+        median = cv2.medianBlur(thresholded, 7)
+        kernel = np.ones((9, 9), np.uint8)
+        morphed = cv2.morphologyEx(median, cv2.MORPH_OPEN, kernel)
+        # finally, apply mask to image
+        no_bg_image = cv2.bitwise_and(image, image, mask=morphed)
+        yield no_bg_image
 
 
 def main():
@@ -112,8 +108,7 @@ def main():
     else:
         roi_hist = np.zeros([])
 
-    mg_model = mog2_subtractor()
-    mg_model.send(None)
+    mg_model = mog2_bg_subtractor()
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
@@ -121,8 +116,9 @@ def main():
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
 
-        processed_image = mg_model.send(image)
+        image = preprocess_image(image)
         mg_model.send(None)
+        processed_image = mg_model.send(image)
 
         # rudimentary user interface
         pressed_key_code = cv2.waitKey(10) & 0xFF
