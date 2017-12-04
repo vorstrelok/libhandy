@@ -110,6 +110,7 @@ def main():
         roi_hist = np.zeros([])
 
     mg_model = mog2_bg_subtractor()
+    timeout = 25
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
@@ -144,12 +145,19 @@ def main():
                 processed_image, roi_hist, track_window
             )
             # actions
-            if center[0] < 160:
-                event = 'left'
-            elif center[0] > 480:
-                event = 'right'
+            event = ''
+            if timeout:
+                timeout -= 1
             else:
-                event = 'center'
+                if center[0] < 160:
+                    event = 'left'
+                    timeout = 25
+                elif center[0] > 480:
+                    event = 'right'
+                    timeout = 25
+                else:
+                    event = 'center'
+                print(timeout)
             message = 'Center coordinates {0},{1}---{2}'.format(center[0], center[1], event)
         else:
             r, h, c, w = track_window
