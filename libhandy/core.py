@@ -11,7 +11,7 @@ def hand_histogram(roi):
     return roi_hist
 
 
-def camshift_tacking(image, roi_hist, track_window):
+def camshift_tracking(image, roi_hist, track_window):
     # Setup the termination criteria,
     # either 10 iteration or move by atleast 1 pt
     term_crit = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
@@ -25,7 +25,8 @@ def camshift_tacking(image, roi_hist, track_window):
     pts = np.int0(pts)
     img2 = cv2.polylines(image, [pts], True, 255, 2)
 
-    return track_window, img2
+    center = (int(ret[0][0]), int(ret[0][1]))
+    return track_window, center, img2
 
 
 def preprocess_image(image):
@@ -116,7 +117,6 @@ def main():
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
 
-        image = preprocess_image(image)
         mg_model.send(None)
         processed_image = mg_model.send(image)
 
@@ -140,21 +140,30 @@ def main():
                 cv2.imwrite('hand_img.png', roi)
 
         if roi_hist.any():
-            track_window, tracked_image = camshift_tacking(
+            track_window, center, tracked_image = camshift_tracking(
                 processed_image, roi_hist, track_window
             )
+            # actions
+            if center[0] < 160:
+                event = 'left'
+            elif center[0] > 480:
+                event = 'right'
+            else:
+                event = 'center'
+            message = 'Center coordinates {0},{1}---{2}'.format(center[0], center[1], event)
         else:
             r, h, c, w = track_window
             # draw target rectangle
             cv2.rectangle(processed_image, (r, c), (r+h, c+w), (20, 20, 55), 2)
+            message = ''
 
         # put some text on the screen
-        # cv2.putText(
-        #     image,
-        #     'Hand postiond is {0},{1}'.format(image.shape[1], image.shape[0]),
-        #     (int(0.08*image.shape[1]), int(0.97*image.shape[0])),
-        #     cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 255)
-        # )
+        cv2.putText(
+            processed_image,
+            message,
+            (int(0.08*image.shape[1]), int(0.97*image.shape[0])),
+            cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 255)
+        )
 
         # Display the resulting frame
         cv2.namedWindow(library_name, cv2.WINDOW_NORMAL)
