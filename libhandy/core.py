@@ -26,7 +26,7 @@ def camshift_tracking(image, roi_hist, track_window):
     img2 = cv2.polylines(image, [pts], True, 255, 2)
 
     center = (int(ret[0][0]), int(ret[0][1]))
-    return track_window, center, img2
+    return track_window, center, cv2.contourArea(pts), img2
 
 
 def preprocess_image(image):
@@ -141,11 +141,14 @@ def main():
                 cv2.imwrite('hand_img.png', roi)
 
         if roi_hist.any():
-            track_window, center, tracked_image = camshift_tracking(
+            track_window, center, area, tracked_image = camshift_tracking(
                 processed_image, roi_hist, track_window
             )
-            # actions
             event = ''
+            if not 2000 < area < 40000:
+                event = 'hand lost'
+                track_window = (80, 80, 80, 80)
+            # actions
             if timeout:
                 timeout -= 1
             else:
@@ -157,7 +160,6 @@ def main():
                     timeout = 25
                 else:
                     event = 'center'
-                print(timeout)
             message = 'Center coordinates {0},{1}---{2}'.format(center[0], center[1], event)
         else:
             r, h, c, w = track_window
