@@ -6,7 +6,7 @@ import os
 def hand_histogram(roi):
     hsv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
     # mask = cv2.inRange(hsv_roi, np.array((0., 60., 32.)), np.array((180., 255., 255.)))
-    roi_hist = cv2.calcHist([hsv_roi], [0], None, [180], [0, 180])
+    roi_hist = cv2.calcHist([hsv_roi], [0], None, [90], [0, 180])
     cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
     return roi_hist
 
