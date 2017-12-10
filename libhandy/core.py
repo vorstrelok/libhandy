@@ -111,6 +111,8 @@ def main():
 
     mg_model = mog2_bg_subtractor()
     timeout = 25
+    # used in writing a screenshot
+    screenshot_index = 1
     while True:
         # Capture frame-by-frame
         _, image = camera_feed.read()
@@ -125,6 +127,10 @@ def main():
         pressed_key_code = cv2.waitKey(10) & 0xFF
         if pressed_key_code == ord('q'):
             break
+        elif pressed_key_code == ord('s'):
+            # make a screenshot
+            cv2.imwrite('metrics/image{}.png'.format(screenshot_index), image)
+            screenshot_index += 1
         elif pressed_key_code == ord('c'):
             if roi_hist.any():
                 # if we already have a hand image and we press C again,
