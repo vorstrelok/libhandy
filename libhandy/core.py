@@ -1,6 +1,7 @@
+import os
+import sys
 import cv2
 import numpy as np
-import os
 
 
 def hand_histogram(roi):
@@ -88,13 +89,55 @@ def custom_bg_subtractor():
         yield no_bg_image
 
 
+def intersection_over_union(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    # compute the area of intersection rectangle
+    interArea = (xB - xA + 1) * (yB - yA + 1)
+
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+
+    # return the intersection over union value
+    return iou
+
+
+def get_image():
+    test_run = len(sys.argv) - 1
+    if test_run:
+        bg_image_counter = 64
+    else:
+        camera_feed = cv2.VideoCapture(0)
+        # set camera resolution
+        # camera_feed.set(3, 1280)
+        # camera_feed.set(4, 720)
+        camera_feed.set(3, 640)
+        camera_feed.set(4, 480)
+    while True:
+        image = yield
+        if test_run:
+            if bg_image_counter > 4:
+                image = cv2.imread('metrics/image1.png')
+            else:
+                image = cv2.imread('metrics/image{}.png'.format(bg_image_counter))
+            bg_image_counter -= 1
+        else:
+            image = camera_feed.read()[1]
+        yield image
+
+
 def main():
-    camera_feed = cv2.VideoCapture(0)
-    # set camera resolution
-    # camera_feed.set(3, 1280)
-    # camera_feed.set(4, 720)
-    camera_feed.set(3, 640)
-    camera_feed.set(4, 480)
     library_name = 'libhandy v0.1'
 
     # initial location of tracking window
@@ -109,13 +152,15 @@ def main():
     else:
         roi_hist = np.zeros([])
 
+    datafeed = get_image()
     mg_model = mog2_bg_subtractor()
     timeout = 25
     # used in writing a screenshot
     screenshot_index = 1
     while True:
         # Capture frame-by-frame
-        _, image = camera_feed.read()
+        datafeed.send(None)
+        image = datafeed.send(None)
 
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
@@ -174,6 +219,8 @@ def main():
             message = ''
 
         # put some text on the screen
+        bla = (80, 80, 80, 80)
+        print(intersection_over_union(bla, track_window), track_window)
         cv2.putText(
             processed_image,
             message,
