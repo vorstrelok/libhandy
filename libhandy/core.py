@@ -2,6 +2,7 @@ import os
 import sys
 import cv2
 import numpy as np
+import bs4
 
 
 def hand_histogram(roi):
@@ -129,12 +130,23 @@ def get_image():
         if test_run:
             if bg_image_counter > 4:
                 image = cv2.imread('metrics/image1.png')
+                box = (80, 80, 80, 80)
             else:
-                image = cv2.imread('metrics/image{}.png'.format(bg_image_counter))
+                filename = 'metrics/image{}'.format(bg_image_counter)
+                image = cv2.imread(filename + '.png')
+                xml_file = open(filename + '.xml')
+                soup = bs4.BeautifulSoup(xml_file.read(), 'lxml-xml')
+                print(filename)
+                box = [
+                    int(soup.annotation.object.bndbox.xmin.string),
+                    int(soup.annotation.object.bndbox.ymin.string),
+                    int(soup.annotation.object.bndbox.xmax.string),
+                    int(soup.annotation.object.bndbox.ymax.string),
+                ]
             bg_image_counter -= 1
         else:
-            image = camera_feed.read()[1]
-        yield image
+            box, image = camera_feed.read()
+        yield box, image
 
 
 def main():
@@ -160,7 +172,7 @@ def main():
     while True:
         # Capture frame-by-frame
         datafeed.send(None)
-        image = datafeed.send(None)
+        box, image = datafeed.send(None)
 
         # flip the image so the screen acts like a mirror
         image = cv2.flip(image, 1)
@@ -218,9 +230,14 @@ def main():
             cv2.rectangle(processed_image, (r, c), (r+h, c+w), (20, 20, 55), 2)
             message = ''
 
+        if len(sys.argv) - 1:
+            print(intersection_over_union(box, (
+                track_window[0],
+                track_window[1],
+                track_window[0] + track_window[2],
+                track_window[1] + track_window[3])
+            ), track_window)
         # put some text on the screen
-        bla = (80, 80, 80, 80)
-        print(intersection_over_union(bla, track_window), track_window)
         cv2.putText(
             processed_image,
             message,
