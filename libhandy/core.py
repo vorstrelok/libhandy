@@ -90,34 +90,23 @@ def custom_bg_subtractor():
         yield no_bg_image
 
 
-def intersection_over_union(boxA, boxB):
-    # determine the (x, y)-coordinates of the intersection rectangle
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-
-    # compute the area of intersection rectangle
-    interArea = (xB - xA + 1) * (yB - yA + 1)
-
-    # compute the area of both the prediction and ground-truth
-    # rectangles
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-
-    # return the intersection over union value
+def intersection_over_union(square_a, square_b):
+    def overlap(amax, bmax, amin, bmin):
+        return max(0, min(amax, bmax) - max(amin, bmin))
+    x_overlap = overlap(square_a[2], square_b[2], square_a[0], square_b[0])
+    y_overlap = overlap(square_a[3], square_b[3], square_a[1], square_b[1])
+    intersection_area = x_overlap * y_overlap
+    a_area = (square_a[2] - square_a[0]) * (square_a[3] - square_a[1])
+    b_area = (square_b[2] - square_b[0]) * (square_b[3] - square_b[1])
+    total_area = a_area + b_area - intersection_area
+    iou = intersection_area / total_area
     return iou
 
 
 def get_image():
     test_run = len(sys.argv) - 1
     if test_run:
-        bg_image_counter = 64
+        bg_image_counter = 66
     else:
         camera_feed = cv2.VideoCapture(0)
         # set camera resolution
@@ -128,19 +117,21 @@ def get_image():
     while True:
         image = yield
         if test_run:
-            if bg_image_counter > 4:
+            if bg_image_counter > 6:
                 image = cv2.imread('metrics/image1.png')
-                box = (80, 80, 80, 80)
+                box = (80, 80, 160, 160)
             else:
                 filename = 'metrics/image{}'.format(bg_image_counter)
                 image = cv2.imread(filename + '.png')
                 xml_file = open(filename + '.xml')
                 soup = bs4.BeautifulSoup(xml_file.read(), 'lxml-xml')
                 print(filename)
+                # subtract 640 to "mirror" coordinates, because we flip image
+                # switch max and min also
                 box = [
-                    int(soup.annotation.object.bndbox.xmin.string),
+                    640 - int(soup.annotation.object.bndbox.xmax.string),
                     int(soup.annotation.object.bndbox.ymin.string),
-                    int(soup.annotation.object.bndbox.xmax.string),
+                    640 - int(soup.annotation.object.bndbox.xmin.string),
                     int(soup.annotation.object.bndbox.ymax.string),
                 ]
             bg_image_counter -= 1
@@ -232,12 +223,15 @@ def main():
 
         if len(sys.argv) - 1:
             print(intersection_over_union(box, (
-                track_window[0],
-                track_window[1],
-                track_window[0] + track_window[2],
-                track_window[1] + track_window[3])
-            ), track_window)
-        # put some text on the screen
+                    track_window[0],
+                    track_window[1],
+                    track_window[0] + track_window[2],
+                    track_window[1] + track_window[3]))
+                  , track_window)
+            cv2.rectangle(processed_image, (box[0], box[1]), (box[2], box[3]), (20, 20, 55), 2)
+            cv2.rectangle(processed_image, (track_window[0], track_window[1]), (track_window[0]+track_window[2], track_window[1]+track_window[3]), (20, 20, 55), 2)
+            cv2.imwrite('tmp/tmpimage{}.png'.format(screenshot_index), processed_image)
+            screenshot_index += 1
         cv2.putText(
             processed_image,
             message,

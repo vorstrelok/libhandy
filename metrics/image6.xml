@@ -1,7 +1,7 @@
 <annotation>
 	<folder>metrics</folder>
-	<filename>image3.png</filename>
-	<path>/home/vorstrel/libhandy/metrics/image3.png</path>
+	<filename>image6.png</filename>
+	<path>/home/vorstrel/libhandy/metrics/image6.png</path>
 	<source>
 		<database>Unknown</database>
 	</source>
@@ -17,10 +17,10 @@
 		<truncated>0</truncated>
 		<difficult>0</difficult>
 		<bndbox>
-			<xmin>304</xmin>
-			<ymin>106</ymin>
-			<xmax>410</xmax>
-			<ymax>243</ymax>
+			<xmin>412</xmin>
+			<ymin>131</ymin>
+			<xmax>506</xmax>
+			<ymax>244</ymax>
 		</bndbox>
 	</object>
 </annotation>
