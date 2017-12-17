@@ -3,6 +3,11 @@ import sys
 import cv2
 import numpy as np
 import bs4
+import Xlib
+import Xlib.display
+import Xlib.XK
+
+display = Xlib.display.Display(os.environ['DISPLAY'])
 
 
 def hand_histogram(roi):
@@ -199,19 +204,31 @@ def main():
                 processed_image, roi_hist, track_window
             )
             event = ''
-            if not 2000 < area < 40000:
-                event = 'hand lost'
-                track_window = (80, 80, 80, 80)
             # actions
             if timeout:
                 timeout -= 1
             else:
-                if center[0] < 160:
+                if not 2000 < area < 70000:
+                    event = 'hand lost'
+                    track_window = (200, 200, 80, 80)
+                elif center[0] < 160:
                     event = 'left'
                     timeout = 25
+                    keycode = display.keysym_to_keycode(
+                        Xlib.XK.string_to_keysym('Left')
+                    )
+                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
+                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
+                    display.sync()
                 elif center[0] > 480:
                     event = 'right'
                     timeout = 25
+                    keycode = display.keysym_to_keycode(
+                        Xlib.XK.string_to_keysym('Right')
+                    )
+                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
+                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
+                    display.sync()
                 else:
                     event = 'center'
             message = 'Center coordinates {0},{1}---{2}'.format(center[0], center[1], event)
