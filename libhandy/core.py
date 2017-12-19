@@ -3,11 +3,35 @@ import sys
 import cv2
 import numpy as np
 import bs4
-import Xlib
-import Xlib.display
-import Xlib.XK
 
-display = Xlib.display.Display(os.environ['DISPLAY'])
+try:
+    import Xlib
+    import Xlib.display
+    import Xlib.XK
+except ModuleNotFoundError:
+    def left_action():
+        pass
+
+    def right_action():
+        pass
+else:
+    display = Xlib.display.Display(os.environ['DISPLAY'])
+
+    def left_action():
+        keycode = display.keysym_to_keycode(
+            Xlib.XK.string_to_keysym('Left')
+        )
+        Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
+        Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
+        display.sync()
+
+    def right_action():
+        keycode = display.keysym_to_keycode(
+            Xlib.XK.string_to_keysym('Right')
+        )
+        Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
+        Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
+        display.sync()
 
 
 def hand_histogram(roi):
@@ -214,21 +238,11 @@ def main():
                 elif center[0] < 160:
                     event = 'left'
                     timeout = 25
-                    keycode = display.keysym_to_keycode(
-                        Xlib.XK.string_to_keysym('Left')
-                    )
-                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
-                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
-                    display.sync()
+                    left_action()
                 elif center[0] > 480:
                     event = 'right'
                     timeout = 25
-                    keycode = display.keysym_to_keycode(
-                        Xlib.XK.string_to_keysym('Right')
-                    )
-                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyPress, keycode)
-                    Xlib.ext.xtest.fake_input(display, Xlib.X.KeyRelease, keycode)
-                    display.sync()
+                    right_action()
                 else:
                     event = 'center'
             message = 'Center coordinates {0},{1}---{2}'.format(center[0], center[1], event)
