@@ -245,8 +245,13 @@ def main():
                     track_window[0] + track_window[2],
                     track_window[1] + track_window[3]))
                   , track_window)
-            cv2.rectangle(processed_image, (box[0], box[1]), (box[2], box[3]), (20, 20, 55), 2)
-            cv2.rectangle(processed_image, (track_window[0], track_window[1]), (track_window[0]+track_window[2], track_window[1]+track_window[3]), (20, 20, 55), 2)
+            cv2.rectangle(processed_image, (box[0], box[1]), (box[2], box[3]), (20, 200, 20), 2)
+            cv2.rectangle(
+                processed_image,
+                (track_window[0], track_window[1]),
+                (track_window[0]+track_window[2], track_window[1]+track_window[3]),
+                (20, 20, 200), 2
+            )
             cv2.imwrite('tmp/tmpimage{}.png'.format(screenshot_index), processed_image)
             screenshot_index += 1
         cv2.putText(
